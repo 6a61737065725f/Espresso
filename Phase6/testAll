@@ -1,0 +1,191 @@
+#!/bin/bash
+
+
+
+TESTROOT="../";
+
+if [ "$#" -eq 0 ] ; then
+  echo -e "Usage:"
+  echo "./testAll good phase : tests all good cases, but does not run anything"
+  echo -e "./testAll bad phase  : tests all bad cases"
+  echo -e "./testAll run        : runs all the tests with java (Phase 6 only)"
+  echo -e ""
+  echo -e "Remember to set the TESTROOT variable to the directory in which your tests are located."
+  echo -e "This script should reside in the same directory as the 'espressoc' script."
+
+  exit 0
+fi
+
+suc=0
+fail=0
+rm -rf TestResults
+mkdir TestResults
+pwd=`pwd`
+dir="$pwd"
+echo -e "$dir"
+p="$2";
+if [ $1 = "good" ] ; then
+    echo -e "Testing Good files for Phase $p"
+    #write espressoc file
+    echo -e "#!/bin/sh" > espressotestc
+    echo -e "java -cp $dir/bin/:$dir/src/Utilities/java_cup_runtime.jar Espressoc -I $dir/Include/ -P:$p \c" >> espressotestc
+    if [ $p -eq 1 ] ; then echo -e " -Ttoken \c"  >> espressotestc
+    elif [ $p -eq 2 ] ; then echo -e " -Ttree \c" >> espressotestc
+    elif [ $p -eq 3 ] ; then echo -e " -Tsymbol \c" >> espressotestc
+    elif [ $p -eq 4 ] ; then echo -e " -Ttype \c" >> espressotestc
+    elif [ $p -eq 5 ] ; then echo -e " -Tmodifier \c" >> espressotestc
+    elif [ $p -eq 6 ] ; then echo -e " -Tcode \c" >> espressotestc
+    fi
+    echo -e " \$1" >> espressotestc
+    chmod 755 espressotestc
+    for c in '' '+'; do              
+	echo -e "Espresso$c:"
+	rm -rf result.txt
+	for file in `ls $TESTROOT/Tests/Phase$p/Espresso$c/GoodTests/*.java` ; do
+	    filename=`echo -e $file | sed 's/\//-/g' | sed 's/\.\.//g'`
+	    # echo -e "Compiling \033[1;32m$file\033[0m ...."
+	    echo -e ">>> $file" >> result.txt
+	    echo -e "Compiling \033[1;32m$file\033[0m .... \c"
+	    ./espressotestc $file > TestResults/$filename 	    
+	    cp TestResults/$filename you.txt
+
+	    tail -1 TestResults/$filename | cat >> result.txt
+	    t=`tail -1 TestResults/$filename`
+	    ./espressocr $file 2>/dev/null > reference.txt
+	    cc=`diff you.txt reference.txt | wc -c | sed 's/ //g'`
+	    if [ "$t" = "============= S = U = C = C = E = S = S =================" -a $cc -eq 0 ] ; then
+		echo -e "\033[1;32mOK\033[0m"
+		rm TestResults/$filename
+		suc=$((suc+1))
+	    else
+		echo -e "\033[1;31mFAILED\033[0m"
+		#tail -1 TestResults/$filename
+		fail=$((fail+1))
+		if [ $cc -ne 0 ] ; then
+		  echo -e "Output diff:";
+		  diff you.txt reference.txt
+		fi
+	    fi
+	    rm you.txt
+	    rm reference.txt
+	    echo -e "<<< $file" >> result.txt
+	done
+	rm -rf result.txt
+	rm -rf *.j       
+    done
+    echo -e "----------------------------------------"
+    echo -e "$suc tests \033[1;32msucceeded\033[0m"
+    echo -e "$fail tests \033[1;31mfailed\033[0m"
+    echo -e "========================================\n\n"
+fi
+
+suc=0
+fail=0
+if [ $1 = "bad" ] ; then
+    echo -e "Testing Bad Files for Phase $p"
+    #write espressoc file
+    echo -e "#!/bin/sh" > espressotestc
+    echo -e "java -cp $dir/bin/:$dir/src/Utilities/java_cup_runtime.jar Espressoc -I $dir/Include/ -P:$p \$1" >> espressotestc
+    chmod 755 espressotestc
+    for c in '' '+'; do              
+	echo -e "Espresso$c:"
+        rm -rf result.txt
+        for file in `ls $TESTROOT/Tests/Phase$p/Espresso$c/BadTests/*.java` ; do
+	    l=`strings $file | head -1 | sed 's/\/\///g' | sed 's/(//g' | sed 's/)//g'`
+	    ll=$((l+1))
+	    safe_pattern=$(printf "%s\n" "$file" | sed 's/[][\.*^$/]/\\&/g')
+	    head -$ll $file | tail -$l | sed 's/\/\///g' | sed "s/\#/${safe_pattern}:/g" | strings > errormessage.txt
+	    
+	    echo -e "Compiling \033[1;32m$file\033[0m .... \c"
+	    ./espressotestc $file | strings > msg.txt
+	    
+	    diffsize=`diff msg.txt errormessage.txt | wc | cut -c 1-10  | sed 's/ //g'`
+	    if [ $diffsize -eq 0 ] ; then
+		echo -e "\033[1;32mOK\033[0m"
+		suc=$((suc+1))
+	    else
+		echo -e "\033[1;31mFAILED\033[0m"
+		echo -e "Difference between compiler output and expected output."
+		fail=$((fail+1))
+		diff msg.txt errormessage.txt
+	    fi
+	done
+    done
+    echo -e "----------------------------------------"
+    echo -e "$suc tests \033[1;32msucceeded\033[0m"
+    echo -e "$fail tests \033[1;31mfailed\033[0m"
+    echo -e "========================================\n\n"
+fi
+
+rm -rf msg.txt
+rm -rf errormessage.txt
+
+suc=0
+fail=0
+if [ $1 = "run" ] ; then
+    echo -e "#!/bin/sh" > espressotestc
+  #  echo -e "export CLASSPATH=/Users/matt/Java-Utils/:." >> espressotestc
+  #  echo -e "java -cp bin/:src/Utilities/java_cup_runtime.jar Espressoc -I Include/ -P:6 \$1" >> espressotestc
+    echo -e "java -cp $dir/bin/:$dir/src/Utilities/java_cup_runtime.jar Espressoc -I $dir/Include/ -P:6 \$1" >> espressotestc
+    chmod 755 espressotestc
+    for p in '' '+' ; do
+	for javafile in `ls $TESTROOT/Tests/Phase6/Espresso$p/GoodTests/*.java` ; do
+	    rm -rf *.j
+	    echo -e "----------------------------------------------------------------------------"
+            
+        # compile source using the phase 6 Espresso compiler
+	    echo -e  "Compiling \033[1;32m$javafile\033[0m .... \c"
+	    ./espressotestc $javafile > /dev/null 2>&1
+	    echo -e "\033[1;32mdone\033[0m"
+	    
+	    rm -f Io.j
+        # assemble all the jasmin files
+	    
+	    echo -e "Assembling \c"
+	    for file in `ls *.j` ; do
+		echo -e "$file \c"	
+		java -classpath $dir/src/Utilities/jasmin.jar jasmin.Main $file > /dev/null 2>&1
+	#	/Users/matt/Dropbox/workspace/Espresso/jasmin $file # > /dev/null 2>&1
+	    done
+	    echo -e "\033[1;32mdone\033[0m"
+	    
+	    runfile=`grep -l "main(\[Ljava/lang/String;)V" *.j | cut -f 1 -d '.' `
+	    echo -e "Executing \033[1;32m$runfile\033[0m .... \c"
+	    
+	    l=`strings $javafile | head -1 | sed 's/\/\///g' | sed 's/(//g' | sed 's/)//g'`
+	    args=`cat $javafile | head -2 | tail -1 | sed 's/\/\///g' | sed 's/(//g' | sed 's/)//g'` 
+	    ll=$((l+2))
+	    head -$ll $javafile | tail -$l | sed 's^/\/\///g' > expected_output.txt
+	    
+	#echo -e "java -cp Lib:. $runfile"
+	    
+	    echo -e $args | java -cp $dir/Lib:. $runfile > output.txt 
+	    echo -e "done .... \c"
+	    diffcount=`diff -w output.txt expected_output.txt | wc -l | sed 's/ //g'`
+	    if [ $diffcount -eq 0 ] ; then	
+		echo -e "\033[1;32mSucceeded\033[0m"
+		suc=$((suc+1))
+	    else
+		echo -e "\033[1;31mFailed\033[0m"
+		diff -w output.txt expected_output.txt
+		fail=$((fail+1))
+	    fi
+	done
+    done
+    rm -rf espressotestc
+    rm -f output.txt
+    rm -f expected_output
+    rm -f *.j
+    for f in `ls *.class | grep -v Espressoc.class` ; do
+	rm -f $f
+    done
+    
+    echo -e "-------------------------------------"
+    echo -e "$suc tests \033[1;32msucceeded\033[0m"
+    echo -e "$fail tests \033[1;31mfailed\033[0m"
+    echo -e "====================================="
+fi
+
+rm -rf  TestResults
+rm -f expected_output.txt 
+rm -f espressotestc

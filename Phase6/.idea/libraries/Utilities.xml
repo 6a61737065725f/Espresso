@@ -1,0 +1,13 @@
+<component name="libraryTable">
+  <library name="Utilities">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/src/Utilities/java_cup_runtime.jar!/" />
+      <root url="jar://$PROJECT_DIR$/src/Utilities/Espresso.jar!/" />
+      <root url="jar://$PROJECT_DIR$/src/Utilities/jasmin.jar!/" />
+      <root url="jar://$PROJECT_DIR$/src/Utilities/java_cup.jar!/" />
+      <root url="jar://$PROJECT_DIR$/src/Utilities/JFlex.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
